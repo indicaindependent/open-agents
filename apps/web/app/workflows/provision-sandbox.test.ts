@@ -126,4 +126,44 @@ describe("provisionSandboxWorkflow", () => {
     expect(sessionRecord?.lifecycleState).toBe("archived");
     expect(provisionSessionSandboxMock).not.toHaveBeenCalled();
   });
+
+  test("keeps failed startup provisioning sessions retryable", async () => {
+    const { provisionSandboxWorkflow } = await workflowModulePromise;
+    provisionSessionSandboxMock.mockImplementationOnce(async () => {
+      throw new Error("Sandbox provider timed out");
+    });
+
+    await expect(
+      provisionSandboxWorkflow({
+        userId: "user-1",
+        sessionId: "session-1",
+      }),
+    ).rejects.toThrow("Sandbox provider timed out");
+
+    expect(sessionRecord?.lifecycleState).toBe("provisioning");
+    expect(sessionRecord?.sandboxProvisioningRunId).toBeNull();
+    expect(updateCalls.at(-1)).toEqual({
+      sessionId: "session-1",
+      patch: {
+        sandboxProvisioningRunId: null,
+        lifecycleState: "provisioning",
+        lifecycleError: "Sandbox provider timed out",
+      },
+    });
+
+    await expect(
+      provisionSandboxWorkflow({
+        userId: "user-1",
+        sessionId: "session-1",
+      }),
+    ).resolves.toEqual({
+      sandboxState: {
+        type: "vercel",
+        sandboxName: "session_session-1",
+        expiresAt: expect.any(Number),
+      },
+    });
+
+    expect(provisionSessionSandboxMock).toHaveBeenCalledTimes(2);
+  });
 });

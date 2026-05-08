@@ -55,7 +55,7 @@ async function provisionSandboxStep(params: {
 
     await updateSession(params.sessionId, {
       sandboxProvisioningRunId: null,
-      lifecycleState: "failed",
+      lifecycleState: "provisioning",
       lifecycleError: message,
     });
     throw error;

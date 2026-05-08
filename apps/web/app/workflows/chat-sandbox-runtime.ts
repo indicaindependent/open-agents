@@ -128,35 +128,38 @@ async function getRunnableSession(sessionId: string, userId: string) {
 }
 
 async function resolveActiveSessionSandbox(session: SessionRecord) {
-  if (!isSandboxActive(session.sandboxState)) {
+  const currentSandboxState = session.sandboxState;
+  if (!isSandboxActive(currentSandboxState)) {
     return null;
   }
 
-  const sandbox = await connectSandbox(session.sandboxState, {
+  const sandbox = await connectSandbox(currentSandboxState, {
     ports: DEFAULT_SANDBOX_PORTS,
   });
   const rawSandboxState = sandbox.getState?.() as SandboxState | undefined;
   const sandboxState = isSandboxActive(rawSandboxState)
     ? rawSandboxState
-    : session.sandboxState;
+    : currentSandboxState;
 
   return { sandbox, sandboxState };
 }
 
 async function resumePausedSessionSandbox(session: SessionRecord) {
+  const currentSandboxState = session.sandboxState;
   if (
     session.lifecycleState === "provisioning" ||
-    !hasPausedSandboxState(session.sandboxState)
+    !currentSandboxState ||
+    !hasPausedSandboxState(currentSandboxState)
   ) {
     return null;
   }
 
-  const sandbox = await connectSandbox(session.sandboxState, {
+  const sandbox = await connectSandbox(currentSandboxState, {
     ports: DEFAULT_SANDBOX_PORTS,
     resume: true,
   });
   const rawSandboxState = sandbox.getState?.() as SandboxState | undefined;
-  const sandboxState = rawSandboxState ?? session.sandboxState;
+  const sandboxState = rawSandboxState ?? currentSandboxState;
 
   const updatedSession = await updateSession(session.id, {
     sandboxState,
